@@ -51,7 +51,7 @@ pip install pymupdf opencv-python pillow
 <details>
 <summary>👉 点击查看完整代码</summary>
 
-```python
+<pre><code class="language-python">
 # ---------- 检测疑似页 ----------
 
 def find_suspect_pages(pdf_path, template_path, ad_keywords, threshold=0.25, dpi=150):
@@ -94,7 +94,7 @@ def find_suspect_pages(pdf_path, template_path, ad_keywords, threshold=0.25, dpi
 
     doc.close()
     return suspect_pages, scores
-```
+</code></pre>
 
 </details>
 
