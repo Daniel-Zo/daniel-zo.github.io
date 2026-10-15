@@ -48,10 +48,10 @@ pip install pymupdf opencv-python pillow
 ### 2. 模板匹配的阈值设定
 - 随PDF的版式变化，取opencv返回的最佳匹配点max_val进行阈值比较的话，无论阈值怎么设定，都存在与模板图不匹配的风险。改为增加关键词命中的匹配逻辑。模板匹配 or 关键词命中，then判定为嫌疑页。
 
-<details>
-<summary>👉 点击查看完整代码</summary>
+<details markdown="1">
+<summary>👉 点击查看这一部分的完整代码</summary>
 
-<pre><code class="language-python">
+```python
 # ---------- 检测疑似页 ----------
 
 def find_suspect_pages(pdf_path, template_path, ad_keywords, threshold=0.25, dpi=150):
@@ -94,7 +94,7 @@ def find_suspect_pages(pdf_path, template_path, ad_keywords, threshold=0.25, dpi
 
     doc.close()
     return suspect_pages, scores
-</code></pre>
+```
 
 </details>
 
