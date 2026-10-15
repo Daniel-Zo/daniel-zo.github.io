@@ -44,6 +44,7 @@ pip install pymupdf opencv-python pillow
 ## 📝 总结（跨过了多少坑）
 ### 1. 灰度图Size归一化
 - 广告模板页尺寸（横版）和其他正常页（有些文档是竖版）尺寸不一致，导致PDF每页的渲染图全都和模板不一致。改为对每页都在渲染灰度图后，用cv2.resize进行归一化到相同尺寸了再比较
+
 ### 2. 模板匹配的阈值设定
 - 随PDF的版式变化，取opencv返回的最佳匹配点max_val进行阈值比较的话，无论阈值怎么设定，都存在与模板图不匹配的风险。改为增加关键词命中的匹配逻辑。模板匹配 or 关键词命中，then判定为嫌疑页。
 参考代码如下：
@@ -97,6 +98,5 @@ def find_suspect_pages(pdf_path, template_path, ad_keywords, threshold=0.25, dpi
     doc.close()
     return suspect_pages, scores
 ```
-
 </details>
 
