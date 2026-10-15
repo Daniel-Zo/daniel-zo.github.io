@@ -25,7 +25,7 @@ Neo4j（节点 + 关系）
 查 Neo4j / 查 MD，不查 PDF
 ```
 
-MinerU 解析：参考前面的文章{% post_url 2026-10-10-1stDay %}
+MinerU 解析：参考前面的文章[实践大模型Mineros]{% post_url 2026-10-10-1stDay %}
 
 ## 📌 代码实现
 ### 1. Conda环境准备
@@ -71,32 +71,35 @@ def find_suspect_pages(pdf_path, template_path, ad_keywords, threshold=0.25, dpi
 <summary>👉 点击展开剩下的代码</summary>
 
 ```python
-    for page_num in range(doc.page_count):
-        page = doc[page_num]
+for page_num in range(doc.page_count):
+    page = doc[page_num]
 
-        # --- 条件 1：模板匹配 ---
-        pix = page.get_pixmap(dpi=dpi, colorspace=fitz.csGRAY)
-        img = np.frombuffer(pix.samples, dtype=np.uint8).reshape(pix.h, pix.w)
-        img = normalize(img)
+    # --- 条件 1：模板匹配 ---
+    pix = page.get_pixmap(dpi=dpi, colorspace=fitz.csGRAY)
+    img = np.frombuffer(pix.samples, dtype=np.uint8).reshape(pix.h, pix.w)
+    img = normalize(img)
 
-        if th > img.shape[0] or tw > img.shape[1]:
-            scores[page_num] = 0.0
-            continue
+    if th > img.shape[0] or tw > img.shape[1]:
+        scores[page_num] = 0.0
+        continue
 
-        result = cv2.matchTemplate(img, template, cv2.TM_CCOEFF_NORMED)
-        _, score, _, _ = cv2.minMaxLoc(result)
-        scores[page_num] = score
+    result = cv2.matchTemplate(img, template, cv2.TM_CCOEFF_NORMED)
+    _, score, _, _ = cv2.minMaxLoc(result)
+    scores[page_num] = score
 
-        # --- 条件 2：关键词 ---
-        text = page.get_text()
-        hit_keyword = any(kw in text for kw in ad_keywords)
+    # --- 条件 2：关键词 ---
+    text = page.get_text()
+    hit_keyword = any(kw in text for kw in ad_keywords)
 
-        # --- 双重锁定 ---
-        if score >= threshold or hit_keyword:
-            suspect_pages.append(page_num)
+    # --- 双重锁定 ---
+    if score >= threshold or hit_keyword:
+        suspect_pages.append(page_num)
 
-    doc.close()
-    return suspect_pages, scores
+doc.close()
+return suspect_pages, scores
+
 ```
+
 </details>
+
 
