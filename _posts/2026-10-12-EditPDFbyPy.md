@@ -25,7 +25,7 @@ Neo4j（节点 + 关系）
 查 Neo4j / 查 MD，不查 PDF
 ```
 
-MinerU 解析：参考前面的文章[实践大模型Mineros]{% post_url 2026-10-10-1stDay %}
+MinerU 解析：参考前面的文章[实践大模型Mineros]({% post_url 2026-10-10-1stDay %})
 
 ## 📌 代码实现
 ### 1. Conda环境准备
