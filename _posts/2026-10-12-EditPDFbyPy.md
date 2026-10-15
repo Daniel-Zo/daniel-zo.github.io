@@ -7,9 +7,23 @@ tags: [Python, PyMuPDF, OpenCV]
 
 ## 📌 导图
 ### 1. 摘除广告页
+- 广告内容不仅影响阅读原文，也污染索引查询，通过关键字和广告模板来命中，进行PDF删页处理。
 ![alt text](/assets/images/EditPDFbyPy/image.png)
-### 2. 文本层回写
-
+### 2. 文本层外挂
+- OCR 错误的话，虽然回写透明文本层，而且也不会污染用户看到的内容。但是，确实影响检索准确性。
+所以，OCR 识别的文本和原本PDF的文本，都进行外挂处理，建立PDF->MD->JSON的关系（三者用同一个文件名前缀关联）
+```
+原始 PDF（不动）
+    ↓ MinerU 解析
+Markdown（外挂文本）
+    ↓ 抽取字段
+JSON（结构化标签）
+    ↓ 写入
+Neo4j（节点 + 关系）
+    ↓ 检索时
+查 Neo4j / 查 MD，不查 PDF
+```
+MinerU 解析：可以参考前面的文章：({% post_url 2026-10-10-1stDay %})
 ## 📌 代码实现
 ### 1. Conda环境准备
 启动Conda下的ExamRGA环境，并安装pymupdf和opencv库。
@@ -18,6 +32,7 @@ tags: [Python, PyMuPDF, OpenCV]
 ```
 pip install pymupdf opencv-python pillow
 ```
+
 ### 2. Python代码实现
 代码也就300行，借助Deepseek多次调整修改，一天时间搞定。🎉🎉🎉
 部分代码如下图：
@@ -47,7 +62,11 @@ def find_suspect_pages(pdf_path, template_path, ad_keywords, threshold=0.25, dpi
     doc = fitz.open(pdf_path)
     suspect_pages = []
     scores = {}
+```
+<details>
+<summary>👉 点击展开剩下的代码</summary>
 
+```python
     for page_num in range(doc.page_count):
         page = doc[page_num]
 
@@ -75,3 +94,6 @@ def find_suspect_pages(pdf_path, template_path, ad_keywords, threshold=0.25, dpi
     doc.close()
     return suspect_pages, scores
 ```
+
+</details>
+
