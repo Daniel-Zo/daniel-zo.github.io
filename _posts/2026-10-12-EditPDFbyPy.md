@@ -9,6 +9,7 @@ tags: [Python, PyMuPDF, OpenCV]
 ### 1. 摘除广告页
 - 广告内容不仅影响阅读原文，也污染索引查询，通过关键字和广告模板来命中，进行PDF删页处理。
 ![alt text](/assets/images/EditPDFbyPy/image.png)
+
 ### 2. 文本层外挂
 - OCR 错误的话，虽然回写透明文本层，而且也不会污染用户看到的内容。但是，确实影响检索准确性。
 所以，OCR 识别的文本和原本PDF的文本，都进行外挂处理，建立PDF->MD->JSON的关系（三者用同一个文件名前缀关联）
@@ -23,7 +24,8 @@ Neo4j（节点 + 关系）
     ↓ 检索时
 查 Neo4j / 查 MD，不查 PDF
 ```
-MinerU 解析：可以参考前面的文章：({% post_url 2026-10-10-1stDay %})
+MinerU 解析：可以参考前面的文章：{% post_url 2026-10-10-1stDay %}
+
 ## 📌 代码实现
 ### 1. Conda环境准备
 启动Conda下的ExamRGA环境，并安装pymupdf和opencv库。
