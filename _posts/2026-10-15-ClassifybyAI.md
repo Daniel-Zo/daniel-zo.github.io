@@ -72,6 +72,7 @@ print("\n全部完成")
 5. 只输出类别列表，每行一个，不要解释，不要编号。
 ```
 - 执行classifybyzhipu-doctype.py后，跑出来结果：
+
 ```
 共 135 份文件
 正在调用智谱 AI 归纳类别...
@@ -103,6 +104,7 @@ FIXED_DOC_TYPES = [
 ### 4. 按固定List重新分类/抽取字段
 - 调整Prompt，新做一个Python程序（classifybyzhipu.py），对这135份MD文件逐一喂给AI。
 - AI从MD文件中抽取原始PDF文件的基本元数据（名称、标题、年份、发布机构），另外，还需要从每个MD文件的前5页文字中归纳出：行业、关键词。
+
 ```python
     type_list = "\n".join(f"- {t}" for t in FIXED_DOC_TYPES)
 
@@ -134,8 +136,10 @@ FIXED_DOC_TYPES = [
 - 只输出 JSON 对象，不要解释，不要代码块标记
 - 不确定的字段填 null，不要编造
 ```
+
 - 执行classifybyzhipu.py后，135份文档的doc_type分类正确，但是industry出现"长尾分布"：少数领域（人工智能 14 份）集中，剩下 100 多个领域各 1 份。Keywords因为只喂了5页文本而归纳得乱七八糟。
 暂且保留原始 industry，另加一个固定list的粗粒度的 industry_group。这样今后分级检索起来也可以更精准。
+
 ```python
 INDUSTRY_GROUPS = [
     "科技与互联网",    # AI、芯片、半导体、量子、云计算、网络安全
@@ -151,7 +155,9 @@ INDUSTRY_GROUPS = [
     "其他",            # 兜底
 ]
 ```
+
 - 接下来写代码（appendIndustryGroup.py），直接把Json文件给AI追加粗粒度的 industry_group的值。执行后输出如下。看上去分布是均衡的，可以相信AI可以按照给定的规则进行准确的映射。
+
 ```
 === industry_group 分布 ===
   科技与互联网: 28
