@@ -1,6 +1,6 @@
 ---
 title: "Markdown存入Neo4j构建图谱"
-date: 2026-10-20
+date: 2026-10-19
 categories: [AI]
 tags: [Markdown, JSON, Neo4j, Cypher]
 ---
