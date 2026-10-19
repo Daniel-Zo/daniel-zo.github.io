@@ -61,8 +61,8 @@ tags: [Markdown, JSON, Neo4j, Cypher]
 #### 2.2 数据导入Neo4j
 - 写代码（neo4jdataimport.py）,读取JSON文件，使用CYPHER语句导入数据。
 
-    <details markdown="1">
-    <summary>👉 点击查看代码</summary>
+<details markdown="1">
+<summary>👉 点击查看代码</summary>
 
     ```python
     # ---------- Cypher 语句 ----------
@@ -147,4 +147,4 @@ tags: [Markdown, JSON, Neo4j, Cypher]
 - 可能需要深挖AI归纳的Summary或Keywords等信息时，里面提到的实体也有必要作为节点。
 
 #### 2. 多层级标签隔离
-- Neo4j的社区版不分Schema，节点和关系都是平铺在库里面，给节点加专属前缀标签来与本地原有其他图数据，进行物理隔离，互不干扰。从而，倒推到JSON生成时Prompt里面就写好专属前缀。
+- Neo4j的社区版不分Schema，节点和关系都是平铺在库里面，给节点加专属前缀标签来与本地原有其他图数据，进行物理隔离，互不干扰。从而，倒推到JSON生成时Prompt里面就写好专属前缀（P_）。
