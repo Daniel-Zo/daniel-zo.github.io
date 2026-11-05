@@ -184,8 +184,6 @@ tags: [Scikit-learn, Joblib, SentenceTransformer, LLM, 意图路由, Dify]
 
     </details>
 
-
-
     <details markdown="2">
     <summary>👉 点击查看evalute.py代码</summary>
 
@@ -272,7 +270,6 @@ tags: [Scikit-learn, Joblib, SentenceTransformer, LLM, 意图路由, Dify]
     ```
 
     </details>
-
 
 - 导出模型的config_v1.2.0_embedding_large.json文件里面，置信阈值confidence_threshold设定在 0.45 ，边界阈值margin_threshold设定在 0.1 。只要第一名比第二名高出至少 0.1，程序就果断走本地意图路由（极速响应）。如果低于这两个阈值标准（比如只有 0.4 的自信，或者前两名 0.4 vs 0.35），系统就会识别为模棱两可，触发 is_fallback = true，交给 Dify 配置的后一节点的大模型去追问。
     ```json
