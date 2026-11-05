@@ -5,9 +5,7 @@ categories: [AI]
 tags: [Scikit-learn, Joblib, SentenceTransformer, LLM, 意图路由, Dify]
 ---
 
-## 📌 环境准备
-
-### 1. 意图路由的框架
+## 📌 意图路由的框架
 
 - 路由就是定义处理能力（分支动作），将无穷的提问意图归结到要不要查库，查库要查几个（Single/Multi），要不要追问用户，要不要人工介入等等。只有**被约束、被度量、被回滚**的路由才是稳定可靠的，再加上希望节省 Token 、低延迟，于是放弃直接全盘靠LLM路由的想法，自建一套简单的轻量级的判别式的分类器。
 - 路由决策必须带上：模型版本、阈值版本、边界定义、决策理由，保证能被回溯。
@@ -16,8 +14,9 @@ tags: [Scikit-learn, Joblib, SentenceTransformer, LLM, 意图路由, Dify]
 - 路由的结果一定是一个可校准的概率分布。（有时候靠阈值校准来降低高风险，而模型输出的置信度稍低也OK）
 - 分类器只负责判断 ***“该走哪条路”*** ， 判断结果要严格约束为分类标签（JSON），在 Dify 的条件分类节点来承接并往相应的分支上流转。
 
-### 2. 意图类别的分类标签设计
-| **意图分类标签**           | **意图说明**                       | **后续处理**                                            |
+## 1. 意图类别的分类标签设计
+
+| 意图分类标签               | 意图说明                           | 后续处理                                                |
 | :------------------------- | :--------------------------------- | :------------------------------------------------------ |
 | ***chitchat***             | 与知识库无关的闲聊                 | LLM 直接回复，不查知识库                                |
 | ***graph_single_query***   | 查询某篇文章内容、细节、归档路径   | 模板化 Cypher + 关键词填充 → Neo4j → FastAPI → LLM 总结 |
@@ -27,8 +26,8 @@ tags: [Scikit-learn, Joblib, SentenceTransformer, LLM, 意图路由, Dify]
 | ***permission_query***     | 询问权限、安全控制范围             | 查询权限配置或返回预设的回复                            |
 | ***fallback_clarify***     | 参数不全、意图模糊、置信度低       | 向用户追问确认                                          |
 
-### 3. 模块实现
-#### 3.1 离线端：***模型训练***
+## 2. 模块实现
+### 2.1 离线端：***模型训练***
 - **整体流程**：数据准备 → 训练 → 校准 → 评测 → 导出
 - **数据准备**：
   - 目录结构：
@@ -51,8 +50,9 @@ tags: [Scikit-learn, Joblib, SentenceTransformer, LLM, 意图路由, Dify]
   JSON 数据共 200 条，每个 intent 分支差不多准备 30 条左右。
 
 - 安装 Scikit-learn,  Joblib， SentenceTransformer 的库，参考了之前备考《高级人工智能训练师》时的模型训练代码，加上中文字符的特殊清洗处理，执行代码trainEmbeddingLarge.py，训练并校准模型。再执行evalute.py进行评测模型，输出的模型准确率: 0.8000、Fallback Rate (拒识率): 25.00%，F1-score 0.66，可以说结果还挺不错的，毕竟不到三分之一的问题直接过滤了，可以省不少Token费用。😎
-  ![alt text](/assets/images/IntentRoute/image.png)
-  
+
+    ![alt text](/assets/images/IntentRoute/image.png)
+
     <details markdown="1">
     <summary>👉 点击查看trainEmbeddingLarge.py代码</summary>
 
@@ -184,6 +184,7 @@ tags: [Scikit-learn, Joblib, SentenceTransformer, LLM, 意图路由, Dify]
 
     </details>
 
+
     <details markdown="2">
     <summary>👉 点击查看evalute.py代码</summary>
 
@@ -293,11 +294,11 @@ tags: [Scikit-learn, Joblib, SentenceTransformer, LLM, 意图路由, Dify]
     }
   ```
 
-#### 3.2 FastAPI服务端：***模型调用***
+### 2.2 FastAPI服务端：***模型调用***
 - 编写FastAPI服务端Python代码，并执行常驻后台。
 ![alt text](/assets/images/IntentRoute/image-1.png)
 
-#### 3.3 Dify端：***配置条件分支***
+### 2.3 Dify端：***配置条件分支***
 - 打开Dify工作流画布，复制之前做过的【行业报告解读】的工作流。（ 之前的构建过程，参考文章--[Dify调用Agent生成Cypher语句查询图数据]({% post_url 2026-10-20-DifyWf %})）
 - 在开始节点后， 增加HTTP 请求节点。POST到FastAPI的微服务端口：http://host.docker.internal:8000/classify
 ![alt text](/assets/images/IntentRoute/image-2.png)
@@ -310,8 +311,8 @@ tags: [Scikit-learn, Joblib, SentenceTransformer, LLM, 意图路由, Dify]
 - 增加条件分支节点，所有的7个意图分支以及后续节点流程，全串联起来。
 ![alt text](/assets/images/IntentRoute/image-6.png)
 
-### 4. 实测验证 
-#### 4.1 分支： graph_single_query
+## 3. 实测验证 
+### 3.1 分支： graph_single_query
 - 找了一篇图库里面有的文章（***2026年创作者经济洞察报告***），看看能否路由正确并取到详细文本。PDF 原文定义如下图：
 ![alt text](/assets/images/IntentRoute/image-7.png)
 
@@ -324,34 +325,35 @@ tags: [Scikit-learn, Joblib, SentenceTransformer, LLM, 意图路由, Dify]
 - 继续追问细节，结果也还是挺准确的。
 ![alt text](/assets/images/IntentRoute/image-10.png)
 
-#### 4.2 分支： cross_time_retrieval
+### 3.2 分支： cross_time_retrieval
 - 提问是否有其他类似报告，Dify 工作流最后确实流到了多报告查询比对的节点。（功能还没有具体实现，后面再单独开一篇来实践）RESULT：PASS。👍
 ![alt text](/assets/images/IntentRoute/image-11.png)
 
 - 查看日志，发现本地分类器模型输出的 decision: fallback_clarify ，置信度是: **0.6126**，又触发了LLM兜底路由，并路由到了cross_time_retrieval。
 ![alt text](/assets/images/IntentRoute/image-12.png)
 
-#### 4.3 分支： chitchat
+### 3.3 分支： chitchat
 - 随意发了句：好的。 本地分类器模型输出的 decision: chitchat ，置信度是: **0.7674**，没有触发LLM兜底路由，直接路由进入闲聊分支了。RESULT：PASS。👍
 ![alt text](/assets/images/IntentRoute/image-13.png)
 
-#### 4.4 分支： fallback_clarify
+### 3.4 分支： fallback_clarify
 - 随意发了语义不清晰的句子。本地分类器模型输出的 decision: fallback_clarify ，置信度是: **0.6743**，低于0.75，仍然触发了LLM兜底路由，并路由到了追问分支。RESULT：PASS。👍
 ![alt text](/assets/images/IntentRoute/image-14.png)
 
-#### 4.5 分支： tool_action
+### 3.5 分支： tool_action
 - 提问里面发了个让它发邮件的指令。 本地分类器模型输出的 decision: tool_action ，置信度是: **0.6099**，低于0.75，仍然触发了LLM兜底路由，并路由到了工具调用的分支。（不过，功能还没有具体实现，后面再单独开一篇来实践）RESULT：PASS。👍
 ![alt text](/assets/images/IntentRoute/image-15.png)
 
-#### 4.6 分支： write_article
+### 3.6 分支： write_article
 - 提问里问该如何参考这篇文章写个类似报告。 本地分类器模型输出的 decision: write_article ，置信度是: **0.5149**，低于0.75，仍然触发了LLM兜底路由，并路由到了写作的分支。（功能也是没有具体实现，后面再单独开一篇来实践）RESULT：PASS。👍
 ![alt text](/assets/images/IntentRoute/image-16.png)
 
-#### 4.7 分支： permission_query
+### 3.7 分支： permission_query
 - 提问里问了句可不可以查看文章细节。 本地分类器模型输出的 decision: fallback_clarify ，置信度是: **0.3268**，低于0.75，仍然触发了LLM兜底路由，并路由到了写作的分支。（功能仍然需要后续具体实现，后面再单独开一篇来实践）RESULT：PASS。👍
 ![alt text](/assets/images/IntentRoute/image-17.png)
 
-#### 4.8 测试小结
+### 3.8 测试小结
+
 | 核心维度       | 实测表现                                          | 价值与收益                                                                                                                                      |
 | :------------- | :------------------------------------------------ | :---------------------------------------------------------------------------------------------------------------------------------------------- |
 | 准确率兜底     | 本地模型信心不足时，都能被 LLM 精准接管并纠正。   | 通过“粗排+精排”达到 100% 可用性<br>（***双层漏斗机制***：本地模型致力于：置信度 < 0.45 和 置信度 > 0.75 的粗排，大模型兜底0.45~0.75之间的部分） |
@@ -359,7 +361,7 @@ tags: [Scikit-learn, Joblib, SentenceTransformer, LLM, 意图路由, Dify]
 | 可观测与溯源   | 日志清晰记录 decision、confidence、is_fallback 。 | 路由错误时，可回溯到：<br>本地模型误判、阈值设置不当，还是 LLM 仲裁 Prompt 有问题。                                                             |
 
 
-## 总结（踩过的坑）
+## 📝总结（踩过的坑）
 ### 1. 中文文本分词灾难
 - 最开始，文本特征提取用的 ***TF-IDF***（默认按空格分词），训练模型后得到的准确率惨不忍睹。模型根本学不到中文长词的特征。
 ```
