@@ -73,8 +73,6 @@ tags: [Markdown, SVO, 因果边, Neo4j, MinerU, Dify]
     <summary>👉 点击查看单一 MD 文件的处理逻辑</summary>
 
     ```python
-
-    # ================= 6. 单个文件处理核心逻辑 =================
     def process_single_file(file_path, filename):
         with open(file_path, 'r', encoding='utf-8') as f:
             content = f.read()
@@ -262,8 +260,8 @@ tags: [Markdown, SVO, 因果边, Neo4j, MinerU, Dify]
     except Exception as e:
         print(f"提取异常 [{filename}]: {e}")
         return {"meta": {}, "chains": []}
-    ```
 
+    ```
 
     </details>
 
@@ -275,7 +273,7 @@ tags: [Markdown, SVO, 因果边, Neo4j, MinerU, Dify]
 - 沿用之前文章--[Dify调用Agent生成Cypher语句查询图数据]({% post_url 2026-10-20-DifyWf %})的成果，保留多份 JSON 的批量合并、防同名等框架结构，新建一个 import2neo4j.py 代码。
 - 对原有的200多篇文章节点，更新它们的 p_summary（变成因果链拼接体）和p_keywords、补全它们的 p_outline和 p_chains ，以及给它们长出新的 SVO 的 P_Entity 节点和 CAUSES 因果边。
 
-    <details markdown="2">
+    <details markdown="4">
     <summary>👉 点击查看Cypher入库的逻辑</summary>
 
     ```Cypher
