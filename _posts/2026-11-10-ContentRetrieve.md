@@ -65,206 +65,204 @@ tags: [Markdown, SVO, 因果边, Neo4j, MinerU, Dify]
     </details>
 
 - 另外，MinerU 转换后的 Markdown 里都有标题标识（#字符），通过正则表达式顺手把目录“抄”下来，作为文档节点的属性存进 Neo4j。（P_Document 节点上，再加一个 p_outline 的大纲属性）。如果用户问：“这篇报告讲了啥结构？”，在 Dify 意图识别为“查大纲”后，直接去 Dify 查 p_outline 即可。
-    ```Cypher
-    MATCH (d:P_Document {p_file: 'xxx'}) RETURN d.p_outline
-    ```
+```Cypher
+MATCH (d:P_Document {p_file: 'xxx'}) RETURN d.p_outline
+```
 
-    <details markdown="2">
-    <summary>👉 点击查看单一 MD 文件的处理逻辑</summary>
+<details markdown="2">
+<summary> 👉 点击查看单一 MD 文件的处理逻辑 </summary>
 
-    ```python
-    def process_single_file(file_path, filename):
-        with open(file_path, 'r', encoding='utf-8') as f:
-            content = f.read()
+```python
+def process_single_file(file_path, filename):
+    with open(file_path, 'r', encoding='utf-8') as f:
+        content = f.read()
 
-        # 1. 全文切块
-        chunks = split_text(content, chunk_size=2500, overlap=200)
-        
-        # 限制最多处理前 20 块（约 5 万字），防止超长报告耗费太多 Token 和时间
-        chunks = chunks[:20] 
-        
-        all_chains = []
-        
-        # 初始化默认 Meta，防止大模型没抽出来
-        final_meta = {
-            "p_title": filename,
-            "p_year": None, 
-            "p_doc_type": "其他", 
-            "p_industry": "未知",
-            "p_industry_group": "其他", 
-            "p_publisher": None, 
-            "p_region": None
-        }
-
-        # 2. 逐块提取因果链
-        for j, chunk in enumerate(chunks):
-            if len(chunk.strip()) < 200:
-                continue
-            
-            print(f"      ⏳ 正在提取第 {j+1}/{len(chunks)} 块...", end="", flush=True)
-
-            # 第一块Chunk投喂大模型，需要将Meta和这一Chunk的因果链都提炼出来
-            is_first = (j == 0)
-            result = extract_chunk(chunk, filename, is_first_chunk=is_first)
-
-            # 只有第一块Chunk处理时才有 meta 字段，接住它
-            if is_first and "meta" in result and result["meta"]:
-                for k, v in result["meta"].items():
-                    if v: # 只要不是 null，就替换
-                        final_meta[k] = v
-
-            # 所有的块都有 chains 字段，统统收集
-            chain_count = len(result.get("chains", []))
-            if "chains" in result and result["chains"]:
-                all_chains.extend(result["chains"])
-                print(f" ✅ 提取 {chain_count} 条")
-            else:
-                print(f" ➖ 无有效链条") 
-
-            # 智谱 flash 并发限制，稍作延迟
-            time.sleep(0.5) 
-
-        # 3. 去重（基于 logic_chain 字段去重，防止重叠部分的重复提取）
-        unique_chains = []
-        seen_logic = set()
-        for c in all_chains:
-            if c.get("logic_chain") and c["logic_chain"] not in seen_logic:
-                seen_logic.add(c["logic_chain"])
-                unique_chains.append(c)
-
-        # 4. 先调用清洗函数，得到干净的数据
-        cleaned_list = clean_chains(unique_chains)
-
-        if not cleaned_list:
-            return None # 没提取到干货，直接跳过
-
-        # 5. 用干净的因果链替代传统摘要，重新拼装 新summary（避免法务废话进摘要）
-        clean_summary = "【全篇核心因果逻辑】：\n"
-        for idx, c in enumerate(cleaned_list, 1):
-            clean_summary += f"{idx}. {c.get('logic_chain', '')}\n"
-
-        # 6. 提取去重后的关键词（只取清洗后的宾语） 简单粗暴把宾语提炼为关键词
-        clean_keywords = list(set([c.get("object") for c in cleaned_list if c.get("object")]))[:10]
-
-        # 7. 提取目录大纲（正则表达式）
-        outline_text = extract_outline(content)
-
-        # 8. 构建最终入库的 JSON 结构
-        item = {
-            "p_file": filename,
-            "p_title": final_meta.get("p_title", filename),
-            "p_year": final_meta.get("p_year"),
-            "p_doc_type": final_meta.get("p_doc_type") or "其他",
-            "p_industry": final_meta.get("p_industry") or "未知",
-            "p_industry_group": final_meta.get("p_industry_group") or "其他",
-            "p_publisher": final_meta.get("p_publisher"),
-            "p_region": final_meta.get("p_region"),
-            "p_outline": outline_text,
-            "p_summary": clean_summary, # 👈 使用清洗后的拼接体
-            "p_chains": cleaned_list,   # 👈 使用清洗后的链条
-            "p_keywords": clean_keywords
-        }
+    # 1. 全文切块
+    chunks = split_text(content, chunk_size=2500, overlap=200)
     
-        return item
+    # 限制最多处理前 20 块（约 5 万字），防止超长报告耗费太多 Token 和时间
+    chunks = chunks[:20] 
+    
+    all_chains = []
+    
+    # 初始化默认 Meta，防止大模型没抽出来
+    final_meta = {
+        "p_title": filename,
+        "p_year": None, 
+        "p_doc_type": "其他", 
+        "p_industry": "未知",
+        "p_industry_group": "其他", 
+        "p_publisher": None, 
+        "p_region": None
+    }
 
-    ```
+    # 2. 逐块提取因果链
+    for j, chunk in enumerate(chunks):
+        if len(chunk.strip()) < 200:
+            continue
+        
+        print(f"      ⏳ 正在提取第 {j+1}/{len(chunks)} 块...", end="", flush=True)
 
-    </details>
+        # 第一块Chunk投喂大模型，需要将Meta和这一Chunk的因果链都提炼出来
+        is_first = (j == 0)
+        result = extract_chunk(chunk, filename, is_first_chunk=is_first)
+
+        # 只有第一块Chunk处理时才有 meta 字段，接住它
+        if is_first and "meta" in result and result["meta"]:
+            for k, v in result["meta"].items():
+                if v: # 只要不是 null，就替换
+                    final_meta[k] = v
+
+        # 所有的块都有 chains 字段，统统收集
+        chain_count = len(result.get("chains", []))
+        if "chains" in result and result["chains"]:
+            all_chains.extend(result["chains"])
+            print(f" ✅ 提取 {chain_count} 条")
+        else:
+            print(f" ➖ 无有效链条") 
+
+        # 智谱 flash 并发限制，稍作延迟
+        time.sleep(0.5) 
+
+    # 3. 去重（基于 logic_chain 字段去重，防止重叠部分的重复提取）
+    unique_chains = []
+    seen_logic = set()
+    for c in all_chains:
+        if c.get("logic_chain") and c["logic_chain"] not in seen_logic:
+            seen_logic.add(c["logic_chain"])
+            unique_chains.append(c)
+
+    # 4. 先调用清洗函数，得到干净的数据
+    cleaned_list = clean_chains(unique_chains)
+
+    if not cleaned_list:
+        return None # 没提取到干货，直接跳过
+
+    # 5. 用干净的因果链替代传统摘要，重新拼装 新summary（避免法务废话进摘要）
+    clean_summary = "【全篇核心因果逻辑】：\n"
+    for idx, c in enumerate(cleaned_list, 1):
+        clean_summary += f"{idx}. {c.get('logic_chain', '')}\n"
+
+    # 6. 提取去重后的关键词（只取清洗后的宾语） 简单粗暴把宾语提炼为关键词
+    clean_keywords = list(set([c.get("object") for c in cleaned_list if c.get("object")]))[:10]
+
+    # 7. 提取目录大纲（正则表达式）
+    outline_text = extract_outline(content)
+
+    # 8. 构建最终入库的 JSON 结构
+    item = {
+        "p_file": filename,
+        "p_title": final_meta.get("p_title", filename),
+        "p_year": final_meta.get("p_year"),
+        "p_doc_type": final_meta.get("p_doc_type") or "其他",
+        "p_industry": final_meta.get("p_industry") or "未知",
+        "p_industry_group": final_meta.get("p_industry_group") or "其他",
+        "p_publisher": final_meta.get("p_publisher"),
+        "p_region": final_meta.get("p_region"),
+        "p_outline": outline_text,
+        "p_summary": clean_summary, # 👈 使用清洗后的拼接体
+        "p_chains": cleaned_list,   # 👈 使用清洗后的链条
+        "p_keywords": clean_keywords
+    }
+
+    return item
+
+```
+
+</details>
 
 
 - 最后再约束 LLM 按照下面的格式输出 JSON ：
-    ```python
-       {% raw %}
-        ==================== 输出格式（严格 JSON） ====================
-        只输出 JSON 对象，不要任何解释和代码块标记，不要包含任何其他闲聊文字，严格按照以下结构：
+
+```python
+{% raw %}
+==================== 输出格式（严格 JSON） ====================
+只输出 JSON 对象，不要任何解释和代码块标记，不要包含任何其他闲聊文字，严格按照以下结构：
+{{
+    "meta": {{
+        "p_file": "{filename}",
+        "p_title": "...",
+        "p_year": 2026,
+        "p_doc_type": "...",
+        "p_industry": "...",
+        "p_industry_group": "...",
+        "p_publisher": "...",
+        "p_region": "..."
+    }},
+    "chains": [
         {{
-            "meta": {{
-                "p_file": "{filename}",
-                "p_title": "...",
-                "p_year": 2026,
-                "p_doc_type": "...",
-                "p_industry": "...",
-                "p_industry_group": "...",
-                "p_publisher": "...",
-                "p_region": "..."
-            }},
-            "chains": [
-                {{
-                    "svo": "主语-谓语-宾语",
-                    "logic_chain": "A -> B -> C",
-                    "evidence": "原文带数据的句子",
-                    "subject": "具体主语",
-                    "object": "具体宾语"
-                }}
-            ]
-        }} {% endraw %}
-    ```
+            "svo": "主语-谓语-宾语",
+            "logic_chain": "A -> B -> C",
+            "evidence": "原文带数据的句子",
+            "subject": "具体主语",
+            "object": "具体宾语"
+        }}
+    ]
+}} {% endraw %}
+```
 
 - 如果 LLM 在提炼因果链时返回了错误格式的 JSON 体，需要尽量抢救挽回。就再包了一层例外捕获并强行提取的逻辑。
 
+<details markdown="3">
+<summary> 👉 点击查看正则抢救的处理逻辑 </summary>
 
-    <details markdown="2">
-    <summary>👉 点击查看正则抢救的处理逻辑</summary>
+```python
 
-
-    ```python
-
+try:
+    response = client.chat.completions.create(
+        model=MODEL_NAME,
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.1, # 低温度保证输出严谨
+        # 智谱支持 JSON 模式，防止输出 Markdown 代码块
+        response_format={"type": "json_object"} 
+    )
+    
+    content = response.choices[0].message.content
     try:
-        response = client.chat.completions.create(
-            model=MODEL_NAME,
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.1, # 低温度保证输出严谨
-            # 智谱支持 JSON 模式，防止输出 Markdown 代码块
-            response_format={"type": "json_object"} 
-        )
+        result = json.loads(content)
         
-        content = response.choices[0].message.content
-        try:
-            result = json.loads(content)
-            
-            # 兼容处理：大模型有时会包一层 {"data": [...]}
-            if isinstance(result, dict):
-                # 直接返回字典，保留 meta 和 chains 的完整结构
-                return result
-            elif isinstance(result, list):
-                # 极少数情况下大模型只返回了列表
-                return {"meta": {}, "chains": result}
-            return {"meta": {}, "chains": []}
-
-        except json.JSONDecodeError as e:
-            print(f"[{filename}] JSON 格式损坏，启动正则抢救...")
-            
-            # 用正则强行把逻辑链和证据抠出来
-            # 假设大模型输出了类似的："logic_chain": "xxx -> yyy"，"evidence": "zzz"
-            salvaged_chains = []
-            # 匹配主谓宾 (SVO)
-            svo_matches = re.findall(r'"svo"\s*:\s*"(.*?)"', content)
-            logic_matches = re.findall(r'"logic_chain"\s*:\s*"(.*?)"', content)
-            evidence_matches = re.findall(r'"evidence"\s*:\s*"(.*?)"', content)
-            subj_matches = re.findall(r'"subject"\s*:\s*"(.*?)"', content)
-            obj_matches = re.findall(r'"object"\s*:\s*"(.*?)"', content)
-            
-            # 拼装抢救回来的数据
-            for i in range(min(len(logic_matches), len(evidence_matches), len(subj_matches), len(obj_matches))):
-                salvaged_chains.append({
-                    "svo": svo_matches[i] if i < len(svo_matches) else "",
-                    "logic_chain": logic_matches[i],
-                    "evidence": evidence_matches[i],
-                    "subject": subj_matches[i],
-                    "object": obj_matches[i]
-                })
-                
-            print(f"[{filename}] 成功抢救出 {len(salvaged_chains)} 条残存因果链。")
-            return {"meta": {}, "chains": salvaged_chains}
-        
-    except Exception as e:
-        print(f"提取异常 [{filename}]: {e}")
+        # 兼容处理：大模型有时会包一层 {"data": [...]}
+        if isinstance(result, dict):
+            # 直接返回字典，保留 meta 和 chains 的完整结构
+            return result
+        elif isinstance(result, list):
+            # 极少数情况下大模型只返回了列表
+            return {"meta": {}, "chains": result}
         return {"meta": {}, "chains": []}
 
-    ```
+    except json.JSONDecodeError as e:
+        print(f"[{filename}] JSON 格式损坏，启动正则抢救...")
+        
+        # 用正则强行把逻辑链和证据抠出来
+        # 假设大模型输出了类似的："logic_chain": "xxx -> yyy"，"evidence": "zzz"
+        salvaged_chains = []
+        # 匹配主谓宾 (SVO)
+        svo_matches = re.findall(r'"svo"\s*:\s*"(.*?)"', content)
+        logic_matches = re.findall(r'"logic_chain"\s*:\s*"(.*?)"', content)
+        evidence_matches = re.findall(r'"evidence"\s*:\s*"(.*?)"', content)
+        subj_matches = re.findall(r'"subject"\s*:\s*"(.*?)"', content)
+        obj_matches = re.findall(r'"object"\s*:\s*"(.*?)"', content)
+        
+        # 拼装抢救回来的数据
+        for i in range(min(len(logic_matches), len(evidence_matches), len(subj_matches), len(obj_matches))):
+            salvaged_chains.append({
+                "svo": svo_matches[i] if i < len(svo_matches) else "",
+                "logic_chain": logic_matches[i],
+                "evidence": evidence_matches[i],
+                "subject": subj_matches[i],
+                "object": obj_matches[i]
+            })
+            
+        print(f"[{filename}] 成功抢救出 {len(salvaged_chains)} 条残存因果链。")
+        return {"meta": {}, "chains": salvaged_chains}
+    
+except Exception as e:
+    print(f"提取异常 [{filename}]: {e}")
+    return {"meta": {}, "chains": []}
 
-    </details>
+```
 
+</details>
 
 - 考虑到切块后循环调用 LLM 一定会有时间等待，就用 tqdm 在后端对执行进度进行 tracking 。整个提取json字段的后端执行显示截屏如下：
 ![alt text](/assets/images/ContentRetrieve/image.png)
@@ -273,72 +271,70 @@ tags: [Markdown, SVO, 因果边, Neo4j, MinerU, Dify]
 - 沿用之前文章--[Dify调用Agent生成Cypher语句查询图数据]({% post_url 2026-10-20-DifyWf %})的成果，保留多份 JSON 的批量合并、防同名等框架结构，新建一个 import2neo4j.py 代码。
 - 对原有的200多篇文章节点，更新它们的 p_summary（变成因果链拼接体）和p_keywords、补全它们的 p_outline和 p_chains ，以及给它们长出新的 SVO 的 P_Entity 节点和 CAUSES 因果边。
 
-    <details markdown="4">
-    <summary>👉 点击查看Cypher入库的逻辑</summary>
+<details markdown="4">
+<summary> 👉 点击查看Cypher入库的逻辑 </summary>
 
-    ```Cypher
-    
-    # ---------- Cypher 语句 ----------
-    # 统一使用 P_ 作为节点标签前缀
-    CYPHER_QUERY = """
-    MERGE (d:P_Document {p_file: $p_file})
-    // 🚨 使用 coalesce 防止新数据中为 null 时覆盖旧数据
-    SET d.p_title = coalesce($p_title, d.p_title),
-        d.p_year = coalesce($p_year, d.p_year),
-        d.p_region = coalesce($p_region, d.p_region),
-        d.p_summary = coalesce($p_summary, d.p_summary),
-        d.p_pdf_path = coalesce($p_pdf_path, d.p_pdf_path),
-        d.p_outline = coalesce($p_outline, d.p_outline),
-        d.p_industry = coalesce($p_industry, d.p_industry)
+```Cypher
+# ---------- Cypher 语句 ----------
+# 统一使用 P_ 作为节点标签前缀
+CYPHER_QUERY = """
+MERGE (d:P_Document {p_file: $p_file})
+// 🚨 使用 coalesce 防止新数据中为 null 时覆盖旧数据
+SET d.p_title = coalesce($p_title, d.p_title),
+    d.p_year = coalesce($p_year, d.p_year),
+    d.p_region = coalesce($p_region, d.p_region),
+    d.p_summary = coalesce($p_summary, d.p_summary),
+    d.p_pdf_path = coalesce($p_pdf_path, d.p_pdf_path),
+    d.p_outline = coalesce($p_outline, d.p_outline),
+    d.p_industry = coalesce($p_industry, d.p_industry)
 
-    // 1. 关联文档类型
-    MERGE (dt:P_DocType {p_name: $p_doc_type})
-    MERGE (d)-[:BELONGS_TO_TYPE]->(dt)
+// 1. 关联文档类型
+MERGE (dt:P_DocType {p_name: $p_doc_type})
+MERGE (d)-[:BELONGS_TO_TYPE]->(dt)
 
-    // 2. 关联行业大类
-    MERGE (ig:P_IndustryGroup {p_name: $p_industry_group})
-    MERGE (d)-[:BELONGS_TO_GROUP]->(ig)
+// 2. 关联行业大类
+MERGE (ig:P_IndustryGroup {p_name: $p_industry_group})
+MERGE (d)-[:BELONGS_TO_GROUP]->(ig)
 
-    // 3. 关联细粒度行业
-    MERGE (ind:P_Industry {p_name: $p_industry})
-    MERGE (d)-[:BELONGS_TO_INDUSTRY]->(ind)
+// 3. 关联细粒度行业
+MERGE (ind:P_Industry {p_name: $p_industry})
+MERGE (d)-[:BELONGS_TO_INDUSTRY]->(ind)
 
-    // 4. 关联发布机构 (防止因 null 导致建节点失败)
-    WITH d
-    FOREACH (ignoreMe IN CASE WHEN $p_publisher IS NOT NULL AND $p_publisher <> '' THEN [1] ELSE [] END |
-        MERGE (p:P_Publisher {p_name: $p_publisher})
-        MERGE (d)-[:PUBLISHED_BY]->(p)
-    )
+// 4. 关联发布机构 (防止因 null 导致建节点失败)
+WITH d
+FOREACH (ignoreMe IN CASE WHEN $p_publisher IS NOT NULL AND $p_publisher <> '' THEN [1] ELSE [] END |
+    MERGE (p:P_Publisher {p_name: $p_publisher})
+    MERGE (d)-[:PUBLISHED_BY]->(p)
+)
 
-    // 5. 关联关键词
-    WITH d
-    UNWIND $p_keywords AS kw_name
-    MERGE (k:P_Keyword {p_name: kw_name})
-    MERGE (d)-[:HAS_KEYWORD]->(k)
+// 5. 关联关键词
+WITH d
+UNWIND $p_keywords AS kw_name
+MERGE (k:P_Keyword {p_name: kw_name})
+MERGE (d)-[:HAS_KEYWORD]->(k)
 
-    // 6. 新增核心：写入因果链 (SVO)
-    WITH DISTINCT d
-    UNWIND $p_chains AS chain
-    // 建立主语实体
-    MERGE (s:P_Entity {p_name: chain.subject})
-    // 建立宾语实体
-    MERGE (o:P_Entity {p_name: chain.object})
+// 6. 新增核心：写入因果链 (SVO)
+WITH DISTINCT d
+UNWIND $p_chains AS chain
+// 建立主语实体
+MERGE (s:P_Entity {p_name: chain.subject})
+// 建立宾语实体
+MERGE (o:P_Entity {p_name: chain.object})
 
-    // 建立 CAUSES 关系，并挂载证据
-    MERGE (s)-[r:CAUSES]->(o)
-    SET r.p_logic_chain = chain.logic_chain,
-        r.p_evidence = chain.evidence,
-        r.p_source_file = d.p_file
+// 建立 CAUSES 关系，并挂载证据
+MERGE (s)-[r:CAUSES]->(o)
+SET r.p_logic_chain = chain.logic_chain,
+    r.p_evidence = chain.evidence,
+    r.p_source_file = d.p_file
 
-    // 把实体和文档关联起来，方便从文档反查实体
-    MERGE (d)-[:MENTIONS]->(s)
-    MERGE (d)-[:MENTIONS]->(o)
-    """
+// 把实体和文档关联起来，方便从文档反查实体
+MERGE (d)-[:MENTIONS]->(s)
+MERGE (d)-[:MENTIONS]->(o)
+"""
 
-    ```
+```
 
-    </details>
-
+</details>
 
 - 执行完 import2neo4j.py 程序后，为了看看LLM提炼后的因果链，在Neo4j里面的展示效果如何，摘选了一篇文章并用Neo4j Browser查了一下：
 ![alt text](/assets/images/ContentRetrieve/image-1.png)
