@@ -66,6 +66,7 @@ tags: [Markdown, SVO, 因果边, Neo4j, MinerU, Dify]
     ```Cypher
     MATCH (d:P_Document {p_file: 'xxx'}) RETURN d.p_outline
     ```
+
     <details markdown="2">
     <summary>👉 点击查看单一 MD 文件的处理逻辑</summary>
 
@@ -168,11 +169,13 @@ tags: [Markdown, SVO, 因果边, Neo4j, MinerU, Dify]
 
     </details>
 
+
 - 最后再约束 LLM 按照下面的格式输出 JSON ：
     ```python
+       {% raw %}
         ==================== 输出格式（严格 JSON） ====================
         只输出 JSON 对象，不要任何解释和代码块标记，不要包含任何其他闲聊文字，严格按照以下结构：
-       {% raw %} {{
+        {{
             "meta": {{
                 "p_file": "{filename}",
                 "p_title": "...",
@@ -197,8 +200,10 @@ tags: [Markdown, SVO, 因果边, Neo4j, MinerU, Dify]
 
 - 如果 LLM 在提炼因果链时返回了错误格式的 JSON 体，需要尽量抢救挽回。就再包了一层例外捕获并强行提取的逻辑。
 
+
     <details markdown="2">
     <summary>👉 点击查看正则抢救的处理逻辑</summary>
+
 
     ```python
         try:
@@ -254,7 +259,9 @@ tags: [Markdown, SVO, 因果边, Neo4j, MinerU, Dify]
             return {"meta": {}, "chains": []}
     ```
 
+
     </details>
+
 
 - 考虑到切块后循环调用 LLM 一定会有时间等待，就用 tqdm 在后端对执行进度进行 tracking 。整个提取json字段的后端执行显示截屏如下：
 ![alt text](/assets/images/ContentRetrieve/image.png)
@@ -324,7 +331,9 @@ tags: [Markdown, SVO, 因果边, Neo4j, MinerU, Dify]
     MERGE (d)-[:MENTIONS]->(o)
     """
     ```
-   </details>
+
+    </details>
+
 
 - 执行完 import2neo4j.py 程序后，为了看看LLM提炼后的因果链，在Neo4j里面的展示效果如何，摘选了一篇文章并用Neo4j Browser查了一下：
 ![alt text](/assets/images/ContentRetrieve/image-1.png)
@@ -359,7 +368,9 @@ tags: [Markdown, SVO, 因果边, Neo4j, MinerU, Dify]
 ## 📝总结（踩过的坑）
 ### 1. 头尾截断法，把精华全丢了
 - 彻底废弃头8000+尾2000的截断做法，改用全文切块（Chunking，带 200 字重叠） + 分块提取因果链，最后用因果链强制拼接成全新的 p_summary，保证 100% 覆盖了全文核心信息。
+
 ### 2. 大模型“放飞自我”，生成泛词废节点
 - 在 Prompt 中加上极度严苛的负面清单（严禁使用 AI/系统/效率等词），强制要求具象化实体，跳过免责声明等无价值的文本；并在 Python 端加上正则过滤等处理，把垃圾挡在门外。无论如何，evidence 原文是否能让人读得通顺，这才是关键。
+
 ### 3. 从“让 AI 写摘要”变成了“让 AI 抽因果骨架”
 - 看到AI这种***“直击要害且带原文背书”***的回答，再比对传统的 RAG（切片检索）只会在原文再自编一堆废话，明显认知上又有了一个迭代，那些纯粹的因果真相，才是AI效率化的价值。
