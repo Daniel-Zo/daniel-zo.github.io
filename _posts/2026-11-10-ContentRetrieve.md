@@ -169,31 +169,30 @@ tags: [Markdown, SVO, 因果边, Neo4j, MinerU, Dify]
     </details>
 
 - 最后再约束 LLM 按照下面的格式输出 JSON ：
-
     ```python
-    ==================== 输出格式（严格 JSON） ====================
-    只输出 JSON 对象，不要任何解释和代码块标记，不要包含任何其他闲聊文字，严格按照以下结构：
-    {{
-        "meta": {{
-            "p_file": "{filename}",
-            "p_title": "...",
-            "p_year": 2026,
-            "p_doc_type": "...",
-            "p_industry": "...",
-            "p_industry_group": "...",
-            "p_publisher": "...",
-            "p_region": "..."
-        }},
-        "chains": [
-            {{
-                "svo": "主语-谓语-宾语",
-                "logic_chain": "A -> B -> C",
-                "evidence": "原文带数据的句子",
-                "subject": "具体主语",
-                "object": "具体宾语"
-            }}
-        ]
-    }}
+        ==================== 输出格式（严格 JSON） ====================
+        只输出 JSON 对象，不要任何解释和代码块标记，不要包含任何其他闲聊文字，严格按照以下结构：
+       {% raw %} {{
+            "meta": {{
+                "p_file": "{filename}",
+                "p_title": "...",
+                "p_year": 2026,
+                "p_doc_type": "...",
+                "p_industry": "...",
+                "p_industry_group": "...",
+                "p_publisher": "...",
+                "p_region": "..."
+            }},
+            "chains": [
+                {{
+                    "svo": "主语-谓语-宾语",
+                    "logic_chain": "A -> B -> C",
+                    "evidence": "原文带数据的句子",
+                    "subject": "具体主语",
+                    "object": "具体宾语"
+                }}
+            ]
+        }} {% endraw %}
     ```
 
 - 如果 LLM 在提炼因果链时返回了错误格式的 JSON 体，需要尽量抢救挽回。就再包了一层例外捕获并强行提取的逻辑。
