@@ -164,32 +164,32 @@ tags: [Markdown, SVO, 因果边, Neo4j, MinerU, Dify]
 
 - 最后再约束 LLM 按照下面的格式输出 JSON ：
 
-```python
-{% raw %}
-==================== 输出格式（严格 JSON） ====================
-只输出 JSON 对象，不要任何解释和代码块标记，不要包含任何其他闲聊文字，严格按照以下结构：
-{{
-    "meta": {{
-        "p_file": "{filename}",
-        "p_title": "...",
-        "p_year": 2026,
-        "p_doc_type": "...",
-        "p_industry": "...",
-        "p_industry_group": "...",
-        "p_publisher": "...",
-        "p_region": "..."
-    }},
-    "chains": [
-        {{
-            "svo": "主语-谓语-宾语",
-            "logic_chain": "A -> B -> C",
-            "evidence": "原文带数据的句子",
-            "subject": "具体主语",
-            "object": "具体宾语"
-        }}
-    ]
-}} {% endraw %}
-```
+    ```python
+    {% raw %}
+    ==================== 输出格式（严格 JSON） ====================
+    只输出 JSON 对象，不要任何解释和代码块标记，不要包含任何其他闲聊文字，严格按照以下结构：
+    {{
+        "meta": {{
+            "p_file": "{filename}",
+            "p_title": "...",
+            "p_year": 2026,
+            "p_doc_type": "...",
+            "p_industry": "...",
+            "p_industry_group": "...",
+            "p_publisher": "...",
+            "p_region": "..."
+        }},
+        "chains": [
+            {{
+                "svo": "主语-谓语-宾语",
+                "logic_chain": "A -> B -> C",
+                "evidence": "原文带数据的句子",
+                "subject": "具体主语",
+                "object": "具体宾语"
+            }}
+        ]
+    }} {% endraw %}
+    ```
 
 - 如果 LLM 在提炼因果链时返回了错误格式的 JSON 体，需要尽量抢救挽回。就再包了一层例外捕获并强行正则提取的逻辑如下：。
     ```python
@@ -255,66 +255,65 @@ tags: [Markdown, SVO, 因果边, Neo4j, MinerU, Dify]
 - 沿用之前文章--[Dify调用Agent生成Cypher语句查询图数据]({% post_url 2026-10-20-DifyWf %})的成果，保留多份 JSON 的批量合并、防同名等框架结构，新建一个 import2neo4j.py 代码。
   
 - 对原有的200多篇文章节点，更新它们的 p_summary（变成因果链拼接体）和p_keywords、补全它们的 p_outline和 p_chains ，以及给它们长出新的 SVO 的 P_Entity 节点和 CAUSES 因果边。
+    ```python
+    # ---------- Cypher 语句 ----------
+    # 统一使用 P_ 作为节点标签前缀
+    CYPHER_QUERY = """
+    MERGE (d:P_Document {p_file: $p_file})
+    // 🚨 使用 coalesce 防止新数据中为 null 时覆盖旧数据
+    SET d.p_title = coalesce($p_title, d.p_title),
+        d.p_year = coalesce($p_year, d.p_year),
+        d.p_region = coalesce($p_region, d.p_region),
+        d.p_summary = coalesce($p_summary, d.p_summary),
+        d.p_pdf_path = coalesce($p_pdf_path, d.p_pdf_path),
+        d.p_outline = coalesce($p_outline, d.p_outline),
+        d.p_industry = coalesce($p_industry, d.p_industry)
 
-```python
-# ---------- Cypher 语句 ----------
-# 统一使用 P_ 作为节点标签前缀
-CYPHER_QUERY = """
-MERGE (d:P_Document {p_file: $p_file})
-// 🚨 使用 coalesce 防止新数据中为 null 时覆盖旧数据
-SET d.p_title = coalesce($p_title, d.p_title),
-    d.p_year = coalesce($p_year, d.p_year),
-    d.p_region = coalesce($p_region, d.p_region),
-    d.p_summary = coalesce($p_summary, d.p_summary),
-    d.p_pdf_path = coalesce($p_pdf_path, d.p_pdf_path),
-    d.p_outline = coalesce($p_outline, d.p_outline),
-    d.p_industry = coalesce($p_industry, d.p_industry)
+    // 1. 关联文档类型
+    MERGE (dt:P_DocType {p_name: $p_doc_type})
+    MERGE (d)-[:BELONGS_TO_TYPE]->(dt)
 
-// 1. 关联文档类型
-MERGE (dt:P_DocType {p_name: $p_doc_type})
-MERGE (d)-[:BELONGS_TO_TYPE]->(dt)
+    // 2. 关联行业大类
+    MERGE (ig:P_IndustryGroup {p_name: $p_industry_group})
+    MERGE (d)-[:BELONGS_TO_GROUP]->(ig)
 
-// 2. 关联行业大类
-MERGE (ig:P_IndustryGroup {p_name: $p_industry_group})
-MERGE (d)-[:BELONGS_TO_GROUP]->(ig)
+    // 3. 关联细粒度行业
+    MERGE (ind:P_Industry {p_name: $p_industry})
+    MERGE (d)-[:BELONGS_TO_INDUSTRY]->(ind)
 
-// 3. 关联细粒度行业
-MERGE (ind:P_Industry {p_name: $p_industry})
-MERGE (d)-[:BELONGS_TO_INDUSTRY]->(ind)
+    // 4. 关联发布机构 (防止因 null 导致建节点失败)
+    WITH d
+    FOREACH (ignoreMe IN CASE WHEN $p_publisher IS NOT NULL 
+    AND $p_publisher <> '' THEN [1] ELSE [] END |
+        MERGE (p:P_Publisher {p_name: $p_publisher})
+        MERGE (d)-[:PUBLISHED_BY]->(p)
+    )
 
-// 4. 关联发布机构 (防止因 null 导致建节点失败)
-WITH d
-FOREACH (ignoreMe IN CASE WHEN $p_publisher IS NOT NULL 
-AND $p_publisher <> '' THEN [1] ELSE [] END |
-    MERGE (p:P_Publisher {p_name: $p_publisher})
-    MERGE (d)-[:PUBLISHED_BY]->(p)
-)
+    // 5. 关联关键词
+    WITH d
+    UNWIND $p_keywords AS kw_name
+    MERGE (k:P_Keyword {p_name: kw_name})
+    MERGE (d)-[:HAS_KEYWORD]->(k)
 
-// 5. 关联关键词
-WITH d
-UNWIND $p_keywords AS kw_name
-MERGE (k:P_Keyword {p_name: kw_name})
-MERGE (d)-[:HAS_KEYWORD]->(k)
+    // 6. 新增核心：写入因果链 (SVO)
+    WITH DISTINCT d
+    UNWIND $p_chains AS chain
+    // 建立主语实体
+    MERGE (s:P_Entity {p_name: chain.subject})
+    // 建立宾语实体
+    MERGE (o:P_Entity {p_name: chain.object})
 
-// 6. 新增核心：写入因果链 (SVO)
-WITH DISTINCT d
-UNWIND $p_chains AS chain
-// 建立主语实体
-MERGE (s:P_Entity {p_name: chain.subject})
-// 建立宾语实体
-MERGE (o:P_Entity {p_name: chain.object})
+    // 建立 CAUSES 关系，并挂载证据
+    MERGE (s)-[r:CAUSES]->(o)
+    SET r.p_logic_chain = chain.logic_chain,
+        r.p_evidence = chain.evidence,
+        r.p_source_file = d.p_file
 
-// 建立 CAUSES 关系，并挂载证据
-MERGE (s)-[r:CAUSES]->(o)
-SET r.p_logic_chain = chain.logic_chain,
-    r.p_evidence = chain.evidence,
-    r.p_source_file = d.p_file
-
-// 把实体和文档关联起来，方便从文档反查实体
-MERGE (d)-[:MENTIONS]->(s)
-MERGE (d)-[:MENTIONS]->(o)
-"""
-```
+    // 把实体和文档关联起来，方便从文档反查实体
+    MERGE (d)-[:MENTIONS]->(s)
+    MERGE (d)-[:MENTIONS]->(o)
+    """
+    ```
 
 - 执行完 import2neo4j.py 程序后，为了看看LLM提炼后的因果链，在Neo4j里面的展示效果如何，摘选了一篇文章并用Neo4j Browser查了一下：
 ![alt text](/assets/images/ContentRetrieve/image-1.png)
