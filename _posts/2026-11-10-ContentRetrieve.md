@@ -45,6 +45,7 @@ tags: [Markdown, SVO, 因果边, Neo4j, MinerU, Dify]
     <summary>👉 点击查看Prompt</summary>
 
     ```python
+
     # 因果链提取规则（作为公共任务）    
     chain_rules = f"""
     【因果链提取严格要求】：
@@ -58,6 +59,7 @@ tags: [Markdown, SVO, 因果边, Neo4j, MinerU, Dify]
     5. 请忽略报告的开头（版权声明）和结尾（免责声明、免责条款、机构介绍）。绝对不要提取任何关于“本报告”、“编制机构”、“读者”、“投资建议”、“法律责任”的因果链。如果某个段落全是这类法务废话，请直接返回空列表 []。
     6. 如果遇到文本乱码、毫无逻辑的表格碎片或明显错位的句子，请直接忽略它们，不要强行提取因果链，宁可返回空列表 []。
     """
+    
     ```
 
     </details>
@@ -71,6 +73,7 @@ tags: [Markdown, SVO, 因果边, Neo4j, MinerU, Dify]
     <summary>👉 点击查看单一 MD 文件的处理逻辑</summary>
 
     ```python
+
     # ================= 6. 单个文件处理核心逻辑 =================
     def process_single_file(file_path, filename):
         with open(file_path, 'r', encoding='utf-8') as f:
@@ -165,6 +168,7 @@ tags: [Markdown, SVO, 因果边, Neo4j, MinerU, Dify]
         }
     
         return item
+
     ```
 
     </details>
@@ -206,57 +210,58 @@ tags: [Markdown, SVO, 因果边, Neo4j, MinerU, Dify]
 
 
     ```python
-        try:
-            response = client.chat.completions.create(
-                model=MODEL_NAME,
-                messages=[{"role": "user", "content": prompt}],
-                temperature=0.1, # 低温度保证输出严谨
-                # 智谱支持 JSON 模式，防止输出 Markdown 代码块
-                response_format={"type": "json_object"} 
-            )
-            
-            content = response.choices[0].message.content
-            try:
-                result = json.loads(content)
-                
-                # 兼容处理：大模型有时会包一层 {"data": [...]}
-                if isinstance(result, dict):
-                    # 直接返回字典，保留 meta 和 chains 的完整结构
-                    return result
-                elif isinstance(result, list):
-                    # 极少数情况下大模型只返回了列表
-                    return {"meta": {}, "chains": result}
-                return {"meta": {}, "chains": []}
 
-            except json.JSONDecodeError as e:
-                print(f"[{filename}] JSON 格式损坏，启动正则抢救...")
-                
-                # 用正则强行把逻辑链和证据抠出来
-                # 假设大模型输出了类似的："logic_chain": "xxx -> yyy"，"evidence": "zzz"
-                salvaged_chains = []
-                # 匹配主谓宾 (SVO)
-                svo_matches = re.findall(r'"svo"\s*:\s*"(.*?)"', content)
-                logic_matches = re.findall(r'"logic_chain"\s*:\s*"(.*?)"', content)
-                evidence_matches = re.findall(r'"evidence"\s*:\s*"(.*?)"', content)
-                subj_matches = re.findall(r'"subject"\s*:\s*"(.*?)"', content)
-                obj_matches = re.findall(r'"object"\s*:\s*"(.*?)"', content)
-                
-                # 拼装抢救回来的数据
-                for i in range(min(len(logic_matches), len(evidence_matches), len(subj_matches), len(obj_matches))):
-                    salvaged_chains.append({
-                        "svo": svo_matches[i] if i < len(svo_matches) else "",
-                        "logic_chain": logic_matches[i],
-                        "evidence": evidence_matches[i],
-                        "subject": subj_matches[i],
-                        "object": obj_matches[i]
-                    })
-                    
-                print(f"[{filename}] 成功抢救出 {len(salvaged_chains)} 条残存因果链。")
-                return {"meta": {}, "chains": salvaged_chains}
+    try:
+        response = client.chat.completions.create(
+            model=MODEL_NAME,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.1, # 低温度保证输出严谨
+            # 智谱支持 JSON 模式，防止输出 Markdown 代码块
+            response_format={"type": "json_object"} 
+        )
+        
+        content = response.choices[0].message.content
+        try:
+            result = json.loads(content)
             
-        except Exception as e:
-            print(f"提取异常 [{filename}]: {e}")
+            # 兼容处理：大模型有时会包一层 {"data": [...]}
+            if isinstance(result, dict):
+                # 直接返回字典，保留 meta 和 chains 的完整结构
+                return result
+            elif isinstance(result, list):
+                # 极少数情况下大模型只返回了列表
+                return {"meta": {}, "chains": result}
             return {"meta": {}, "chains": []}
+
+        except json.JSONDecodeError as e:
+            print(f"[{filename}] JSON 格式损坏，启动正则抢救...")
+            
+            # 用正则强行把逻辑链和证据抠出来
+            # 假设大模型输出了类似的："logic_chain": "xxx -> yyy"，"evidence": "zzz"
+            salvaged_chains = []
+            # 匹配主谓宾 (SVO)
+            svo_matches = re.findall(r'"svo"\s*:\s*"(.*?)"', content)
+            logic_matches = re.findall(r'"logic_chain"\s*:\s*"(.*?)"', content)
+            evidence_matches = re.findall(r'"evidence"\s*:\s*"(.*?)"', content)
+            subj_matches = re.findall(r'"subject"\s*:\s*"(.*?)"', content)
+            obj_matches = re.findall(r'"object"\s*:\s*"(.*?)"', content)
+            
+            # 拼装抢救回来的数据
+            for i in range(min(len(logic_matches), len(evidence_matches), len(subj_matches), len(obj_matches))):
+                salvaged_chains.append({
+                    "svo": svo_matches[i] if i < len(svo_matches) else "",
+                    "logic_chain": logic_matches[i],
+                    "evidence": evidence_matches[i],
+                    "subject": subj_matches[i],
+                    "object": obj_matches[i]
+                })
+                
+            print(f"[{filename}] 成功抢救出 {len(salvaged_chains)} 条残存因果链。")
+            return {"meta": {}, "chains": salvaged_chains}
+        
+    except Exception as e:
+        print(f"提取异常 [{filename}]: {e}")
+        return {"meta": {}, "chains": []}
     ```
 
 
@@ -274,6 +279,7 @@ tags: [Markdown, SVO, 因果边, Neo4j, MinerU, Dify]
     <summary>👉 点击查看Cypher入库的逻辑</summary>
 
     ```Cypher
+    
     # ---------- Cypher 语句 ----------
     # 统一使用 P_ 作为节点标签前缀
     CYPHER_QUERY = """
@@ -330,6 +336,7 @@ tags: [Markdown, SVO, 因果边, Neo4j, MinerU, Dify]
     MERGE (d)-[:MENTIONS]->(s)
     MERGE (d)-[:MENTIONS]->(o)
     """
+
     ```
 
     </details>
