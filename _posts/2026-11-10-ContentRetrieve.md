@@ -256,7 +256,7 @@ tags: [Markdown, SVO, 因果边, Neo4j, MinerU, Dify]
   
 - 对原有的200多篇文章节点，更新它们的 p_summary（变成因果链拼接体）和p_keywords、补全它们的 p_outline和 p_chains ，以及给它们长出新的 SVO 的 P_Entity 节点和 CAUSES 因果边。
 
-```Cypher
+```python
 # ---------- Cypher 语句 ----------
 # 统一使用 P_ 作为节点标签前缀
 CYPHER_QUERY = """
@@ -284,7 +284,8 @@ MERGE (d)-[:BELONGS_TO_INDUSTRY]->(ind)
 
 // 4. 关联发布机构 (防止因 null 导致建节点失败)
 WITH d
-FOREACH (ignoreMe IN CASE WHEN $p_publisher IS NOT NULL AND $p_publisher <> '' THEN [1] ELSE [] END |
+FOREACH (ignoreMe IN CASE WHEN $p_publisher IS NOT NULL 
+AND $p_publisher <> '' THEN [1] ELSE [] END |
     MERGE (p:P_Publisher {p_name: $p_publisher})
     MERGE (d)-[:PUBLISHED_BY]->(p)
 )
@@ -313,7 +314,6 @@ SET r.p_logic_chain = chain.logic_chain,
 MERGE (d)-[:MENTIONS]->(s)
 MERGE (d)-[:MENTIONS]->(o)
 """
-
 ```
 
 - 执行完 import2neo4j.py 程序后，为了看看LLM提炼后的因果链，在Neo4j里面的展示效果如何，摘选了一篇文章并用Neo4j Browser查了一下：
