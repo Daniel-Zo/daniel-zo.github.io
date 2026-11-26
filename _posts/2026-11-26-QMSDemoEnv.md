@@ -2,7 +2,7 @@
 title: "浅尝Github的OpenQMS"
 date: 2026-11-26
 categories: [MFG]
-tags: [OpenQMS,Docker ]
+tags: [OpenQMS,Docker,SPC,QCC,FMEA ]
 ---
 
 ## 📌 环境准备
@@ -48,7 +48,7 @@ tags: [OpenQMS,Docker ]
 
 8. 针对这个 PFMEA 提交审批并批准后，到控制计划进行导入确认。
    ![alt text](/assets/images/QMSDemoEnv/image-5.png)  
-   !![alt text](/assets/images/QMSDemoEnv/image-2.png)  
+   ![alt text](/assets/images/QMSDemoEnv/image-2.png)  
 
 9. 点开现场质量管理的SPC控制图，查看到的6区8准则都丝滑呈现。👍
    ![alt text](/assets/images/QMSDemoEnv/image-6.png)   
